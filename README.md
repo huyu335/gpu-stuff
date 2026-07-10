@@ -1058,3 +1058,120 @@ diff parabricks_stats.txt cpu_stats.txt
 ```
 
 
+
+# Why Load Both CUDA and Parabricks?
+
+---
+
+## Short Answer
+```
+Parabricks  =  The bioinformatics application
+CUDA        =  The underlying engine Parabricks NEEDS to run
+
+Parabricks cannot run WITHOUT CUDA
+They are separate software layers
+```
+
+---
+
+### More Technical Analogy
+```
+CUDA        →  Like Java Runtime Environment (JRE)
+Parabricks  →  Like a Java Application
+
+Java app cannot run without JRE installed
+Parabricks cannot run without CUDA installed
+```
+
+---
+
+## Software Layer Visualization
+
+```
+┌─────────────────────────┐
+│      Parabricks         │  ← You use this
+├─────────────────────────┤
+│      CUDA Toolkit       │  ← Parabricks uses this
+├─────────────────────────┤
+│    NVIDIA Driver        │  ← CUDA uses this
+├─────────────────────────┤
+│    GPU Hardware         │  ← Driver talks to this
+└─────────────────────────┘
+
+Each layer DEPENDS on the layer below it
+```
+
+---
+
+## Why Separate in HPC Module System?
+
+### HPC Module System Logic
+```
+HPC clusters have MANY software versions installed
+Module system lets users load SPECIFIC versions
+They are kept separate intentionally for flexibility
+```
+
+```bash
+# HPC might have multiple versions available
+module avail cuda
+# cuda/10.2
+# cuda/11.0
+# cuda/11.8    ← you pick this one
+# cuda/12.0
+
+module avail parabricks
+# parabricks/3.8.0
+# parabricks/4.0.0
+# parabricks/4.1.0    ← you pick this one
+# parabricks/4.2.0
+```
+
+### Why Flexibility Matters
+```
+Different tools need different CUDA versions
+─────────────────────────────────────────
+Parabricks 4.1  →  needs CUDA 11.8
+Parabricks 4.2  →  needs CUDA 12.0
+Some ML tool    →  needs CUDA 11.0
+
+If bundled together, you couldn't mix versions
+Keeping separate = more flexible
+```
+
+---
+
+## Could They Be Combined Into One Module?
+
+```
+YES - HPC admins COULD create a combined module
+Some HPC clusters do this
+
+# Some clusters let you just do:
+module load parabricks/4.1.0
+# and it auto-loads correct CUDA version
+
+# Check if your HPC does this
+module show parabricks/4.1.0
+# Will show you what dependencies it loads
+```
+
+---
+
+## Summary
+
+```
+You load CUDA        →  Provides GPU programming libraries
+You load Parabricks  →  Provides bioinformatics tools
+
+Parabricks sits ON TOP of CUDA
+Both needed because they are separate software layers
+Kept separate in HPC for version flexibility
+
+Think of it as:
+CUDA        =  Foundation
+Parabricks  =  Built on that foundation
+```
+
+
+
