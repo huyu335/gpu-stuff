@@ -706,3 +706,170 @@ Q2: Parabricks has built-in pipelines
 ```
 
 
+# Samtools & External Tools with Parabricks
+
+---
+
+## Short Answer
+```
+Parabricks ONLY provides GPU-accelerated versions of specific tools
+Everything else (Samtools, BCFtools, etc.) you need to install SEPARATELY
+```
+
+---
+
+## What Parabricks Includes vs What You Install
+
+```
+PARABRICKS (comes with)          YOU INSTALL SEPARATELY
+─────────────────────────        ──────────────────────
+✅ BWA-MEM2 (as fq2bam)          ❌ Samtools
+✅ HaplotypeCaller (GPU)         ❌ BCFtools
+✅ DeepVariant (GPU)             ❌ BEDtools
+✅ Mutect2 (GPU)                 ❌ FastQC
+✅ GATK4 tools (GPU)             ❌ Fastp
+✅ Minimap2 (GPU)                ❌ Trimmomatic
+                                 ❌ STAR (RNA-seq aligner)
+                                 ❌ Any custom scripts
+```
+
+---
+
+## Installing Common Bioinformatics Tools
+
+### Option 1: Conda (Recommended - Easiest)
+```bash
+# Install Miniconda first
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+bash Miniconda3-latest-Linux-x86_64.sh
+
+# Create bioinformatics environment
+conda create -n bioenv python=3.9
+conda activate bioenv
+
+# Install common tools all at once
+conda install -c bioconda \
+    samtools \
+    bcftools \
+    bedtools \
+    fastqc \
+    fastp \
+    trimmomatic \
+    star \
+    hisat2 \
+    vcftools
+```
+
+### Option 2: APT (Ubuntu/Debian)
+```bash
+sudo apt update
+sudo apt install \
+    samtools \
+    bcftools \
+    bedtools
+```
+
+### Option 3: From Source
+```bash
+# Samtools example
+wget https://github.com/samtools/samtools/releases/download/1.17/samtools-1.17.tar.bz2
+tar -xjf samtools-1.17.tar.bz2
+cd samtools-1.17
+./configure
+make
+sudo make install
+```
+
+---
+
+## How They Work Together
+
+```
+Your Pipeline
+│
+├── Parabricks steps    →  uses GPU  (fast)
+│   └── pbrun fq2bam
+│   └── pbrun haplotypecaller
+│
+└── External tool steps →  uses CPU  (normal speed)
+    └── samtools sort
+    └── samtools index
+    └── bcftools filter
+```
+
+### Practical Example
+```bash
+#!/bin/bash
+
+# PARABRICKS - GPU accelerated (comes with Parabricks)
+pbrun fq2bam \
+    --ref reference.fa \
+    --in-fq sample_R1.fastq.gz sample_R2.fastq.gz \
+    --out-bam aligned.bam
+
+# SAMTOOLS - CPU (you installed separately)
+samtools sort aligned.bam -o sorted.bam
+samtools index sorted.bam
+
+# PARABRICKS - GPU accelerated again
+pbrun haplotypecaller \
+    --ref reference.fa \
+    --in-bam sorted.bam \
+    --out-variants output.vcf
+
+# BCFTOOLS - CPU (you installed separately)
+bcftools filter -s LowQual \
+    -e 'QUAL<20' \
+    output.vcf > filtered.vcf
+```
+
+---
+
+## Check What You Have Installed
+
+```bash
+# Check each tool
+which samtools    && samtools --version
+which bcftools    && bcftools --version
+which bedtools    && bedtools --version
+which fastqc      && fastqc --version
+which pbrun       && pbrun version        # Parabricks
+```
+
+---
+
+## Simple Rule to Remember
+
+```
+Ask yourself:
+"Is this tool listed in pbrun --list?"
+        │
+        ├── YES  →  Parabricks handles it (GPU)
+        │
+        └── NO   →  You need to install it separately (CPU)
+```
+
+```bash
+# See all Parabricks available commands
+pbrun --help
+```
+
+---
+
+## Recommended Setup for Bioinformatics
+
+```bash
+# 1. Install Parabricks (GPU tools)
+# 2. Install Conda
+# 3. Create environment with CPU tools
+
+conda create -n bioenv python=3.9
+conda activate bioenv
+conda install -c bioconda samtools bcftools bedtools fastqc fastp
+
+# Now you have everything needed
+# GPU steps  → pbrun
+# CPU steps  → conda environment tools
+```
+
+
