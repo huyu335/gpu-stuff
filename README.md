@@ -873,3 +873,188 @@ conda install -c bioconda samtools bcftools bedtools fastqc fastp
 ```
 
 
+# Parabricks Tool Versions
+
+---
+
+## Short Answer
+```
+YES - Parabricks bundles specific versions of tools
+You have LIMITED ability to choose versions
+Version is tied to Parabricks release
+```
+
+---
+
+## How Parabricks Versions Work
+
+```
+Parabricks Version  →  Bundles Specific Tool Versions
+─────────────────────────────────────────────────────
+Parabricks 4.0      →  GATK 4.2.4, BWA-MEM2 2.2.1, etc.
+Parabricks 4.1      →  GATK 4.2.6, BWA-MEM2 2.2.1, etc.
+Parabricks 4.2      →  GATK 4.3.0, BWA-MEM2 2.2.1, etc.
+```
+
+### Check What Versions Are Bundled
+```bash
+# Check Parabricks version
+pbrun version
+
+# Output example:
+# Parabricks Version 4.1.0-1
+# GATK Version: 4.2.6.1
+# BWA-MEM2 Version: 2.2.1
+```
+
+---
+
+## Tool Versions by Parabricks Release
+
+| Parabricks | GATK | BWA-MEM2 | DeepVariant | CUDA |
+|---|---|---|---|---|
+| 4.0 | 4.2.4 | 2.2.1 | 1.4 | 11.0+ |
+| 4.1 | 4.2.6 | 2.2.1 | 1.5 | 11.8+ |
+| 4.2 | 4.3.0 | 2.2.1 | 1.6 | 12.0+ |
+
+```bash
+# Always check official docs for exact versions
+# https://docs.nvidia.com/clara/parabricks/latest/releaseNotes.html
+```
+
+---
+
+## Can You Choose Versions?
+
+### Option 1: Choose Parabricks Version (Limited Control)
+```bash
+# Pull specific Parabricks version via Docker
+docker pull nvcr.io/nvidia/clara/clara-parabricks:4.0.0-1
+docker pull nvcr.io/nvidia/clara/clara-parabricks:4.1.0-1
+docker pull nvcr.io/nvidia/clara/clara-parabricks:4.2.0-1
+
+# Run specific version
+docker run --gpus all \
+    nvcr.io/nvidia/clara/clara-parabricks:4.1.0-1 \
+    pbrun version
+```
+
+### Option 2: Use CPU Version of Tool (Full Control)
+```bash
+# If you need specific GATK version
+# Install it separately and use CPU version instead
+
+# Install specific GATK version
+conda install -c bioconda gatk4=4.2.0.0
+
+# Use CPU GATK instead of Parabricks
+gatk HaplotypeCaller \
+    -R reference.fa \
+    -I input.bam \
+    -O output.vcf
+# ⚠️ This loses GPU acceleration
+```
+
+### Option 3: Mix Versions (Recommended Approach)
+```bash
+#!/bin/bash
+
+# GPU steps  → use Parabricks (bundled versions)
+pbrun fq2bam \
+    --ref reference.fa \
+    --in-fq R1.fastq.gz R2.fastq.gz \
+    --out-bam aligned.bam
+
+# CPU steps  → use YOUR specific version
+# e.g. specific GATK version you need
+gatk-4.1.9.0 HaplotypeCaller \
+    -R reference.fa \
+    -I aligned.bam \
+    -O output.vcf
+```
+
+---
+
+## Checking Bundled Tool Versions
+
+```bash
+# Inside Parabricks Docker container
+docker run --gpus all --rm \
+    nvcr.io/nvidia/clara/clara-parabricks:4.1.0-1 \
+    bash -c "pbrun version"
+
+# Check GATK version specifically
+docker run --gpus all --rm \
+    nvcr.io/nvidia/clara/clara-parabricks:4.1.0-1 \
+    bash -c "gatk --version"
+```
+
+---
+
+## Version Compatibility Concern?
+
+### Common Scenario
+```
+Your lab/project requires  →  GATK 4.1.9
+Parabricks 4.2 bundles     →  GATK 4.3.0
+        │
+        ▼
+Options:
+1. Use older Parabricks version  →  has GATK 4.1.x
+2. Use CPU GATK 4.1.9            →  lose GPU speed
+3. Check if results are same     →  often they are
+```
+
+### Check Result Compatibility
+```bash
+# Run same data on both versions
+# Compare outputs
+
+# Parabricks version
+pbrun haplotypecaller \
+    --ref ref.fa \
+    --in-bam input.bam \
+    --out-variants parabricks_output.vcf
+
+# CPU GATK specific version
+gatk HaplotypeCaller \
+    -R ref.fa \
+    -I input.bam \
+    -O cpu_output.vcf
+
+# Compare
+bcftools stats parabricks_output.vcf > parabricks_stats.txt
+bcftools stats cpu_output.vcf        > cpu_stats.txt
+diff parabricks_stats.txt cpu_stats.txt
+```
+
+---
+
+## Summary
+
+```
+✅ Parabricks bundles specific tool versions
+✅ Version tied to Parabricks release
+✅ You can pin Parabricks version via Docker
+✅ You can use CPU tools for specific version needs
+⚠️  Cannot change individual tool versions INSIDE Parabricks
+⚠️  Changing to CPU loses GPU acceleration
+```
+
+---
+
+## Recommendation
+
+```
+1. Check if bundled version meets your needs
+        │
+        ├── YES  →  Use Parabricks as is
+        │
+        └── NO   →
+                 ├── Try older Parabricks version
+                 │
+                 └── Use CPU tool for that specific step
+                     keep Parabricks for other steps
+```
+
+
